@@ -18,4 +18,11 @@ pub struct JsonRpcResponse<T> {
     pub jsonrpc: String,
     pub id: String,
     pub result: Option<T>,
+    pub error: Option<JsonRpcError>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JsonRpcError {
+    pub code: i32,
+    pub message: String,
 }

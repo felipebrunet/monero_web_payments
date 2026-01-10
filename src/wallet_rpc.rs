@@ -54,19 +54,11 @@ impl WalletRpc {
             .json::<JsonRpcResponse<R>>()
             .await?;
 
-        Ok(resp.result.unwrap_or_default())
-    }
+        if let Some(err) = resp.error {
+            return Err(anyhow!("RPC Error {}: {}", err.code, err.message));
+        }
 
-    /// Open an existing wallet (view-only is fine)
-    pub async fn open_wallet(&self, filename: &str) -> Result<()> {
-        self.call::<_, EmptyResult>(
-            "open_wallet",
-            OpenWalletParams { filename },
-        )
-        .await
-        .map_err(|e| anyhow!("Failed to open wallet: {}", e))?;
-
-        Ok(())
+        resp.result.ok_or_else(|| anyhow!("Missing result in RPC response"))
     }
 
 
@@ -83,18 +75,21 @@ impl WalletRpc {
         .await
     }
 
+    /// Get incoming transfers for a specific subaddress index
+    pub async fn get_transfers(&self, address_index: u32) -> Result<Vec<TransferEntry>> {
+        let params = GetTransfersParams {
+            in_: true,
+            account_index: 0,
+            subaddr_indices: vec![address_index],
+        };
+
+        let res: GetTransfersResult = self.call("get_transfers", params).await?;
+        Ok(res.in_.unwrap_or_default())
+    }
 
 }
 
 /* ---------- RPC PARAMS & RESULTS ---------- */
-
-#[derive(Serialize)]
-struct OpenWalletParams<'a> {
-    filename: &'a str,
-}
-
-#[derive(Deserialize, Default)]
-struct EmptyResult;
 
 #[derive(Serialize)]
 struct CreateAddressParams<'a> {
@@ -106,4 +101,26 @@ struct CreateAddressParams<'a> {
 pub struct SubaddressResult {
     pub address: String,
     pub address_index: u32,
+}
+
+#[derive(Serialize)]
+struct GetTransfersParams {
+    #[serde(rename = "in")]
+    in_: bool,
+    account_index: u32,
+    subaddr_indices: Vec<u32>,
+}
+
+#[derive(Deserialize, Default)]
+struct GetTransfersResult {
+    #[serde(rename = "in")]
+    in_: Option<Vec<TransferEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TransferEntry {
+    pub amount: u64,
+    pub confirmations: u64,
+    #[allow(dead_code)]
+    pub txid: String,
 }

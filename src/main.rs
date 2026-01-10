@@ -27,5 +27,5 @@ async fn main() -> Result<()> {
     )?;
 
     // Start HTTP server
-    server::run(wallet).await
+    server::run(wallet, config.listen).await
 }

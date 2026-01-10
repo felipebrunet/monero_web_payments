@@ -4,7 +4,7 @@ use clap::Parser;
 #[command(name = "moneromerchd")]
 #[command(about = "Monero e-commerce payment daemon")]
 pub struct Config {
-    #[arg(long)]
+    #[arg(long, default_value = "http://127.0.0.1:18083")]
     pub wallet_rpc_url: String,
 
     #[arg(long)]
