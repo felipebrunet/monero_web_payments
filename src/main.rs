@@ -5,9 +5,11 @@ mod invoice;
 mod server;
 mod types;
 
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
+
 use config::Config;
+use wallet_rpc::WalletRpc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,5 +19,13 @@ async fn main() -> Result<()> {
     println!("Wallet RPC: {}", config.wallet_rpc_url);
     println!("Listening on {}", config.listen);
 
-    server::run(config).await
+    // Create Wallet RPC client
+    let wallet = WalletRpc::new(
+        config.wallet_rpc_url.clone(),
+        config.wallet_rpc_user.clone(),
+        config.wallet_rpc_password.clone(),
+    )?;
+
+    // Start HTTP server
+    server::run(wallet).await
 }

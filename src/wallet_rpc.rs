@@ -68,6 +68,22 @@ impl WalletRpc {
 
         Ok(())
     }
+
+
+
+    /// Create a new subaddress (account 0)
+    pub async fn create_subaddress(&self) -> Result<SubaddressResult> {
+        self.call::<_, SubaddressResult>(
+            "create_address",
+            CreateAddressParams {
+                account_index: 0,
+                label: "",
+            },
+        )
+        .await
+    }
+
+
 }
 
 /* ---------- RPC PARAMS & RESULTS ---------- */
@@ -79,3 +95,15 @@ struct OpenWalletParams<'a> {
 
 #[derive(Deserialize, Default)]
 struct EmptyResult;
+
+#[derive(Serialize)]
+struct CreateAddressParams<'a> {
+    account_index: u32,
+    label: &'a str,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct SubaddressResult {
+    pub address: String,
+    pub address_index: u32,
+}
