@@ -1,0 +1,6 @@
+cat <<EOF > .gitignore
+/target
+.env
+*.log
+wallet/
+EOF
