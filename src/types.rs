@@ -16,7 +16,7 @@ pub struct JsonRpcRequest<T> {
 #[allow(dead_code)]
 pub struct JsonRpcResponse<T> {
     pub jsonrpc: String,
-    pub id: String,
+    pub id: RpcId,
     pub result: Option<T>,
     pub error: Option<JsonRpcError>,
 }
@@ -25,4 +25,13 @@ pub struct JsonRpcResponse<T> {
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum RpcId {
+    Str(String),
+    Int(i64),
+    Null,
 }

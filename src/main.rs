@@ -1,7 +1,5 @@
 mod config;
 mod wallet_rpc;
-mod fx;
-mod invoice;
 mod server;
 mod types;
 

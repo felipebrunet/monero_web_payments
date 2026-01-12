@@ -81,10 +81,16 @@ impl WalletRpc {
             in_: true,
             account_index: 0,
             subaddr_indices: vec![address_index],
+            pool: true,
         };
 
         let res: GetTransfersResult = self.call("get_transfers", params).await?;
-        Ok(res.in_.unwrap_or_default())
+        
+        let mut transfers = res.in_.unwrap_or_default();
+        if let Some(pool) = res.pool {
+            transfers.extend(pool);
+        }
+        Ok(transfers)
     }
 
 }
@@ -109,17 +115,20 @@ struct GetTransfersParams {
     in_: bool,
     account_index: u32,
     subaddr_indices: Vec<u32>,
+    pool: bool,
 }
 
 #[derive(Deserialize, Default)]
 struct GetTransfersResult {
     #[serde(rename = "in")]
     in_: Option<Vec<TransferEntry>>,
+    pool: Option<Vec<TransferEntry>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct TransferEntry {
     pub amount: u64,
+    #[serde(default)]
     pub confirmations: u64,
     #[allow(dead_code)]
     pub txid: String,
