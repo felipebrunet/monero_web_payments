@@ -1,7 +1,7 @@
 use axum::{
     extract::State,
     http::StatusCode,
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
+use tower_http::cors::CorsLayer;
 
 use crate::wallet_rpc::{SubaddressResult, TransferEntry, WalletRpc};
 
@@ -100,6 +101,18 @@ struct CheckPaymentResponse {
     paid: bool,
 }
 
+#[derive(Deserialize)]
+struct VerifyRequest {
+    address: String,
+    message: String,
+    signature: String,
+}
+
+#[derive(Serialize)]
+struct VerifyResponse {
+    good: bool,
+}
+
 /* ---------- HANDLERS ---------- */
 
 async fn create_invoice(
@@ -169,6 +182,23 @@ async fn check_payment(
     }))
 }
 
+async fn verify_message(
+    State(state): State<AppState>,
+    Json(req): Json<VerifyRequest>,
+) -> Result<Json<VerifyResponse>, (StatusCode, String)> {
+    let good = state
+        .wallet
+        .verify_message(&req.address, &req.message, &req.signature)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Wallet error: {}", e)))?;
+
+    Ok(Json(VerifyResponse { good }))
+}
+
+async fn health_check() -> &'static str {
+    "OK"
+}
+
 /* ---------- SERVER ---------- */
 
 pub async fn run(wallet: WalletRpc, listen_addr: String) -> anyhow::Result<()> {
@@ -180,9 +210,12 @@ pub async fn run(wallet: WalletRpc, listen_addr: String) -> anyhow::Result<()> {
     };
 
     let app = Router::new()
+        .route("/", get(health_check))
         .route("/invoice", post(create_invoice))
         .route("/check_payment", post(check_payment))
-        .with_state(state);
+        .route("/verify", post(verify_message))
+        .with_state(state)
+        .layer(CorsLayer::permissive());
 
     let listener = TcpListener::bind(listen_addr).await?;
     axum::serve(listener, app).await?;

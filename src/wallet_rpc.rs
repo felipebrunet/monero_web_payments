@@ -93,6 +93,16 @@ impl WalletRpc {
         Ok(transfers)
     }
 
+    /// Verify a signed message
+    pub async fn verify_message(&self, address: &str, message: &str, signature: &str) -> Result<bool> {
+        let params = VerifyParams {
+            data: message,
+            address,
+            signature,
+        };
+        let res: VerifyResult = self.call("verify", params).await?;
+        Ok(res.good)
+    }
 }
 
 /* ---------- RPC PARAMS & RESULTS ---------- */
@@ -132,4 +142,16 @@ pub struct TransferEntry {
     pub confirmations: u64,
     #[allow(dead_code)]
     pub txid: String,
+}
+
+#[derive(Serialize)]
+struct VerifyParams<'a> {
+    data: &'a str,
+    address: &'a str,
+    signature: &'a str,
+}
+
+#[derive(Deserialize, Default)]
+struct VerifyResult {
+    good: bool,
 }
