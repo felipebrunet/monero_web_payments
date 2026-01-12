@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monero Payment Widget</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+        .box { border: 1px solid #444; padding: 20px; max-width: 400px; margin: 0 auto; }
+        button { background: #f60; color: white; border: none; padding: 10px 20px; cursor: pointer; width: 100%; }
+        input, select { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        #status { margin-top: 20px; word-break: break-all; }
+        .success { color: #0f0; font-weight: bold; }
+        #qr { display: block; margin: 20px auto; background: white; padding: 10px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</head>
+<body>
+    <div class="box">
+        <h2>Pay with Monero</h2>
+        <input type="number" id="amount" placeholder="Amount" value="1.00">
+        <select id="currency">
+            <option value="XMR">XMR</option>
+            <option value="USD" selected>USD</option>
+            <option value="GBP">GBP</option>
+            <option value="CLP">CLP</option>
+        </select>
+        <button onclick="createInvoice()">Generate Invoice</button>
+        
+        <div id="result" style="display:none; margin-top: 20px;">
+            <canvas id="qr"></canvas>
+            <p>Send <strong><span id="xmr_amount"></span> XMR</strong> to:</p>
+            <p style="font-size: 0.8em; color: #f60; word-break: break-all;" id="address"></p>
+            <div id="status">Waiting for payment...</div>
+        </div>
+    </div>
+
+    <script>
+        let addressIndex = null;
+        let expectedAmount = null;
+        let pollInterval = null;
+
+        async function createInvoice() {
+            const amount = document.getElementById('amount').value;
+            const currency = document.getElementById('currency').value;
+            
+            // Reset UI
+            if (pollInterval) clearInterval(pollInterval);
+            document.getElementById('status').innerText = "Waiting for payment...";
+            document.getElementById('status').className = "";
+
+            try {
+                const res = await fetch('http://127.0.0.1:8080/invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount, currency: currency })
+                });
+                const data = await res.json();
+                
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('xmr_amount').innerText = data.amount_xmr;
+                document.getElementById('address').innerText = data.address;
+
+                const qr = new QRious({
+                    element: document.getElementById('qr'),
+                    value: `monero:${data.address}?tx_amount=${data.amount_xmr}`,
+                    size: 200
+                });
+                
+                addressIndex = data.address_index;
+                expectedAmount = data.amount_xmr;
+                
+                // Start polling
+                pollInterval = setInterval(checkPayment, 3000);
+            } catch (e) {
+                alert("Error creating invoice: " + e);
+            }
+        }
+
+        async function checkPayment() {
+            if (addressIndex === null) return;
+            try {
+                const res = await fetch('http://127.0.0.1:8080/check_payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address_index: addressIndex, expected_amount_xmr: expectedAmount })
+                });
+                const data = await res.json();
+                
+                if (data.paid) {
+                    document.getElementById('status').innerText = "PAYMENT RECEIVED!";
+                    document.getElementById('status').className = "success";
+                    clearInterval(pollInterval);
+                } else {
+                    document.getElementById('status').innerText = 
+                        `Paid: ${data.paid} | Received: ${data.total_received_xmr} XMR | Confirmations: ${data.confirmations}`;
+                }
+            } catch (e) {
+                console.error("Polling error", e);
+            }
+        }
+    </script>
+</body>
+</html>
